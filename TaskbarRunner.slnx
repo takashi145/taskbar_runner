@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/TaskbarRunner.Core/TaskbarRunner.Core.csproj" />
+  <Project Path="src/TaskbarRunner/TaskbarRunner.csproj" />
+</Solution>
