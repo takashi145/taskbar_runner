@@ -44,11 +44,11 @@
         </DockPanel>
         <TextBlock Text="描画の負荷" />
         <ComboBox x:Name="Fps" />
+        <CheckBox x:Name="StartWithWindows" Content="Windows のサインイン時に起動する" />
+        <TextBlock x:Name="StartupPath" TextWrapping="Wrap" Foreground="#AFBCC4" FontSize="11" Margin="0,0,0,10" />
         <CheckBox x:Name="StartAtMaxSpeed" Content="最初から最高速で始める" />
         <TextBlock Text="加速を待たず、1秒目から最高速・最短間隔になります。" TextWrapping="Wrap" Foreground="#AFBCC4" FontSize="11" Margin="0,0,0,10" />
-        <TextBlock Text="PIP · オリジナルロボット / メインモニター" Foreground="#AFBCC4" />
         <TextBlock x:Name="Statistics" Foreground="#AFBCC4" Margin="0,8,0,8" />
-        <TextBlock Text="Windows 自動起動・追加キャラクター・複数モニターは今後の対応予定です。" TextWrapping="Wrap" Foreground="#AFBCC4" FontSize="11" />
       </StackPanel>
     </ScrollViewer>
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
