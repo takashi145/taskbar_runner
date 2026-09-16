@@ -9,7 +9,7 @@
 	<NoWarn>$(NoWarn);WFAC010;WFO0003</NoWarn>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>TaskbarRunner</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Description>A small, local-only runner on your Windows taskbar.</Description>
   </PropertyGroup>
   <ItemGroup>
