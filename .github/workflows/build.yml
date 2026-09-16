@@ -8,6 +8,8 @@ on:
 jobs:
   verify:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -27,8 +29,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: ./scripts/publish.ps1 -Version '${{ github.ref_name }}'
-      - uses: actions/upload-artifact@v4
+      - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          name: TaskbarRunner-${{ github.ref_name }}-win-x64
-          path: artifacts/TaskbarRunner-${{ github.ref_name }}-win-x64/
+          files: artifacts/TaskbarRunner-${{ github.ref_name }}-win-x64/TaskbarRunner.exe
+          fail_on_unmatched_files: true
+          generate_release_notes: true
