@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="src/TaskbarRunner.Core/TaskbarRunner.Core.csproj" />
   <Project Path="src/TaskbarRunner/TaskbarRunner.csproj" />
+  <Project Path="tests/TaskbarRunner.Core.Tests/TaskbarRunner.Core.Tests.csproj" />
+  <Project Path="tests/TaskbarRunner.Windows.Tests/TaskbarRunner.Windows.Tests.csproj" />
 </Solution>

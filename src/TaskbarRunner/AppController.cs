@@ -39,11 +39,13 @@ internal sealed class AppController : IDisposable
 	// 遊ぶ直前に使っていたウィンドウ。ESC キーでゲームを閉じたら、このウィンドウを再び操作できるようにする。
 	private nint previousWindow;
 	private bool disposed;
+	internal AppCommands Commands { get; }
 
-	internal AppController()
+	internal AppController(string? dataFolder = null, bool notifyStartup = true)
 	{
 		// 通常のユーザーでも保存できるよう、自分の AppData\Roaming\TaskbarRunner フォルダーを使う。
-		var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TaskbarRunner");
+		// 結合テストでは一時フォルダーを指定し、利用者の設定と記録を変更しない。
+		var folder = dataFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TaskbarRunner");
 		settingsStore = new JsonStore<GameSettings>(Path.Combine(folder, "settings.json"));
 		scoreStore = new JsonStore<SaveData>(Path.Combine(folder, "save.json"));
 		// ファイルを直接書き換えて使えない値が入っていても動くよう、読み込んだ値を Sanitize で直す。
@@ -54,10 +56,11 @@ internal sealed class AppController : IDisposable
 		recoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
 		recoveryTimer.Tick += HandleRecoveryTick;
 		overlay = CreateOverlay();
-		tray = new TrayController(() => Queue(Play), () => Queue(OpenSettings),
+		Commands = new AppCommands(() => Queue(Play), () => Queue(OpenSettings),
 				() => Queue(RestartOverlay), () => Queue(() => Application.Current.Shutdown()));
+		tray = new TrayController(Commands);
 		TryPosition(out _);
-		NotifyStartup();
+		if (notifyStartup) NotifyStartup();
 	}
 
 	private void NotifyStartup()

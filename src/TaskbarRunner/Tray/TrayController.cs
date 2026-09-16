@@ -16,7 +16,7 @@ internal sealed class TrayController : IDisposable
     private readonly ContextMenuStrip menu;
     private readonly Icon artwork;
 
-    internal TrayController(Action play, Action settings, Action restart, Action exit)
+    internal TrayController(AppCommands commands)
     {
         artwork = CreateIcon();
         menu = new ContextMenuStrip();
@@ -24,12 +24,12 @@ internal sealed class TrayController : IDisposable
             .InformationalVersion.Split('+')[0] ?? "unknown";
         menu.Items.Add(new ToolStripMenuItem($"Taskbar Runner · v{version}") { Enabled = false });
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("▶  Play", null, (_, _) => play());
-        menu.Items.Add("Settings…", null, (_, _) => settings());
-        menu.Items.Add("Restart Overlay", null, (_, _) => restart());
+        menu.Items.Add("▶  Play", null, (_, _) => commands.Play());
+        menu.Items.Add("Settings…", null, (_, _) => commands.Settings());
+        menu.Items.Add("Restart Overlay", null, (_, _) => commands.RestartOverlay());
         // 間違えて終了を押しにくいよう、他の項目との間に線を入れる。
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => exit());
+        menu.Items.Add("Exit", null, (_, _) => commands.Exit());
         icon = new NotifyIcon
         {
             Icon = artwork,
@@ -39,7 +39,7 @@ internal sealed class TrayController : IDisposable
         };
         icon.MouseClick += (_, e) =>
         {
-            if (e.Button == MouseButtons.Left) play();
+            if (e.Button == MouseButtons.Left) commands.Play();
         };
     }
 
