@@ -8,6 +8,7 @@
     <PlatformTarget>x64</PlatformTarget>
 	<NoWarn>$(NoWarn);WFAC010;WFO0003</NoWarn>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <AssemblyName>TaskbarRunner</AssemblyName>
     <Version>0.2.0</Version>
     <Description>A small, local-only runner on your Windows taskbar.</Description>
