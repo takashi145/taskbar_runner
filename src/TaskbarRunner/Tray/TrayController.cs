@@ -22,7 +22,7 @@ internal sealed class TrayController : IDisposable
         menu = new ContextMenuStrip();
         var version = typeof(TrayController).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion.Split('+')[0] ?? "unknown";
-        menu.Items.Add(new ToolStripMenuItem($"Taskbar Runner · v{version}") { Enabled = false });
+        menu.Items.Add(new ToolStripMenuItem($"Taskbar Runner · v{version}{(Build.IsDebug ? " · DEBUG" : "")}") { Enabled = false });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("▶  Play", null, (_, _) => commands.Play());
         menu.Items.Add("Settings…", null, (_, _) => commands.Settings());
@@ -33,7 +33,7 @@ internal sealed class TrayController : IDisposable
         icon = new NotifyIcon
         {
             Icon = artwork,
-            Text = "Taskbar Runner — 左クリックで遊ぶ / 右クリックでメニュー",
+            Text = (Build.IsDebug ? "Taskbar Runner (DEBUG)" : "Taskbar Runner") + " — 左クリックで遊ぶ / 右クリックでメニュー",
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -57,7 +57,8 @@ internal sealed class TrayController : IDisposable
     {
         using var bitmap = new Bitmap(32, 32);
         using var g = Graphics.FromImage(bitmap);
-        using var mint = new SolidBrush(Color.FromArgb(141, 240, 198));
+        // デバッグ版は胴体を別の色にして、通知領域に2つ並んでも一目で見分けられるようにする。
+        using var mint = new SolidBrush(Build.IsDebug ? Color.FromArgb(255, 138, 128) : Color.FromArgb(141, 240, 198));
         using var dark = new SolidBrush(Color.FromArgb(21, 39, 49));
         using var orange = new SolidBrush(Color.FromArgb(255, 193, 131));
         g.Clear(Color.Transparent);

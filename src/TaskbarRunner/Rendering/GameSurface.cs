@@ -52,7 +52,7 @@ internal sealed class GameSurface(GameSession game) : FrameworkElement
         dc.DrawRoundedRectangle(Panel, null, new Rect(x, y, panelWidth, 48), 12, 12);
         Text(dc, "BEST", x + 20, y + 8, 10, Muted);
         Text(dc, game.BestScore.ToString("D5", CultureInfo.InvariantCulture), x + 20, y + 23, 15, Mint, true);
-        Text(dc, "TASKBAR RUNNER", x + panelWidth / 2, y + 8, 12, White, centered: true);
+        Text(dc, Build.IsDebug ? "TASKBAR RUNNER · DEBUG" : "TASKBAR RUNNER", x + panelWidth / 2, y + 8, 12, White, centered: true);
         Text(dc, $"SPEED {game.Speed / GameSession.InitialSpeed:0.0}×", x + panelWidth / 2,
             y + 27, 10, Mint, centered: true);
         Text(dc, "SCORE", x + panelWidth - 80, y + 8, 10, Muted);
