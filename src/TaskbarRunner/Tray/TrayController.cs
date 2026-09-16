@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Reflection;
 using System.Windows.Forms;
 using TaskbarRunner.Platform;
 
@@ -19,7 +20,9 @@ internal sealed class TrayController : IDisposable
     {
         artwork = CreateIcon();
         menu = new ContextMenuStrip();
-        menu.Items.Add(new ToolStripMenuItem("Taskbar Runner · v0.1.0") { Enabled = false });
+        var version = typeof(TrayController).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion.Split('+')[0] ?? "unknown";
+        menu.Items.Add(new ToolStripMenuItem($"Taskbar Runner · v{version}") { Enabled = false });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("▶  Play", null, (_, _) => play());
         menu.Items.Add("Settings…", null, (_, _) => settings());

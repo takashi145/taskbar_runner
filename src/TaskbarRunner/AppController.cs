@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using TaskbarRunner.Core;
 using TaskbarRunner.Platform;
@@ -23,9 +24,8 @@ internal sealed class AppController : IDisposable
 	private readonly JsonStore<SaveData> scoreStore;
 	private readonly GameSession game;
 	private readonly TrayController tray;
-	private readonly DispatcherTimer frameTimer;
 	private readonly DispatcherTimer recoveryTimer;
-	// タイマーは指定した間隔どおりに動くとは限らないので、実際にたった時間をストップウォッチで測る。
+	// ゲームを進める時間は描画回数から推定せず、実際の経過時間を測る。
 	private readonly Stopwatch clock = new();
 	private OverlayWindow overlay;
 	// 開いている設定画面を覚えておき、2つ目を開かないようにする。閉じているときは null。
@@ -33,6 +33,8 @@ internal sealed class AppController : IDisposable
 	private GameSettings settings;
 	private SaveData save;
 	private double lastFrame;
+	private TimeSpan? lastRendering;
+	private double frameBudget;
 	private int recoveryAttempts;
 	// 遊ぶ直前に使っていたウィンドウ。ESC キーでゲームを閉じたら、このウィンドウを再び操作できるようにする。
 	private nint previousWindow;
@@ -49,14 +51,11 @@ internal sealed class AppController : IDisposable
 		save = scoreStore.Load().Sanitize();
 		game = new GameSession(save.BestScore);
 		game.RunFinished += SaveRun;
-		frameTimer = new DispatcherTimer(DispatcherPriority.Render);
-		frameTimer.Tick += Tick;
 		recoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
 		recoveryTimer.Tick += HandleRecoveryTick;
 		overlay = CreateOverlay();
 		tray = new TrayController(() => Queue(Play), () => Queue(OpenSettings),
 				() => Queue(RestartOverlay), () => Queue(() => Application.Current.Shutdown()));
-		ApplySettings();
 		TryPosition(out _);
 		NotifyStartup();
 	}
@@ -150,31 +149,48 @@ internal sealed class AppController : IDisposable
 
 	private void StartRun()
 	{
+		StopRendering();
 		game.Start();
 		lastFrame = 0;
+		lastRendering = null;
+		frameBudget = 0;
 		clock.Restart();
-		frameTimer.Start();
+		CompositionTarget.Rendering += Tick;
 		overlay.Redraw();
 	}
 
 	private void Tick(object? sender, EventArgs e)
 	{
+		if (!clock.IsRunning) return;
 		// 他のアプリへの切り替えを見逃してもゲームが進み続けないよう、ここでも操作中のウィンドウを確認する。
 		if (NativeMethods.GetForegroundWindow() != overlay.Handle)
 		{
 			Idle(restoreFocus: false);
 			return;
 		}
+		var renderingTime = ((RenderingEventArgs)e).RenderingTime;
+		if (lastRendering == renderingTime) return; // 同じ描画時刻の通知で二重更新しない。
+		var interval = 1.0 / settings.FpsLimit;
+		frameBudget += lastRendering is { } previous ? (renderingTime - previous).TotalSeconds : interval;
+		lastRendering = renderingTime;
+		if (frameBudget + 1e-7 < interval) return;
+		// 端数を持ち越す。遅れた場合も1回の描画で過去のフレームをまとめて描き直さない。
+		frameBudget = Math.Max(0, (frameBudget - interval) % interval);
 		var now = clock.Elapsed.TotalSeconds;
 		// 前回から実際にたった時間ぶん進める。画面を描く回数（FPS）の設定を変えても、ゲームの速さが変わらないようにする。
 		game.Update(now - lastFrame);
 		lastFrame = now;
 		if (game.State == GameState.GameOver)
 		{
-			frameTimer.Stop();
-			clock.Stop();
+			StopRendering();
 		}
 		overlay.Redraw();
+	}
+
+	private void StopRendering()
+	{
+		CompositionTarget.Rendering -= Tick;
+		clock.Stop();
 	}
 
 	/// <summary>プレイを止めてゲーム画面を隠す。restoreFocus が true なら、遊ぶ前のウィンドウに操作を戻す。</summary>
@@ -182,8 +198,7 @@ internal sealed class AppController : IDisposable
 	{
 		// ゲームを操作中だったか、隠す前に覚えておく。EndInteraction で隠した後では分からない。
 		var hadFocus = NativeMethods.GetForegroundWindow() == overlay.Handle;
-		frameTimer.Stop();
-		clock.Stop();
+		StopRendering();
 		game.Stop();
 		overlay.EndInteraction();
 		if (restoreFocus && hadFocus && previousWindow != overlay.Handle && NativeMethods.IsWindow(previousWindow))
@@ -256,14 +271,8 @@ internal sealed class AppController : IDisposable
 		}
 
 		settings = sanitized;
-		ApplySettings();
 		TryPosition(out _);
 		return true;
-	}
-
-	private void ApplySettings()
-	{
-		frameTimer.Interval = TimeSpan.FromSeconds(1.0 / settings.FpsLimit);
 	}
 
 	private void SaveRun()
