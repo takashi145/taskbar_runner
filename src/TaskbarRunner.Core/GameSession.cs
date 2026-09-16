@@ -28,6 +28,7 @@ public sealed class GameSession
     private double verticalVelocity;
     private double viewportWidth = 1280;
     private double speedMultiplier = 1;
+    private bool startAtMaxSpeed;
     private bool duckHeld;
     private bool leftHeld;
     private bool rightHeld;
@@ -64,8 +65,10 @@ public sealed class GameSession
     public double ScrollSpeedLimit => Math.Min(MaximumSpeed * speedMultiplier,
         Math.Max(InitialSpeed * speedMultiplier,
             (viewportWidth - MaximumPlayerX - PlayerWidth + 40) / .50));
-    public double Speed => Math.Min(ScrollSpeedLimit, (InitialSpeed + Elapsed * Acceleration) * speedMultiplier);
-    public double DifficultyProgress => Math.Clamp(Elapsed / DifficultyRampSeconds, 0, 1);
+    // startAtMaxSpeed が有効なら、時間経過を待たず最初から上限で走り、間隔も最も詰まった状態にする。
+    public double Speed => startAtMaxSpeed ? ScrollSpeedLimit
+        : Math.Min(ScrollSpeedLimit, (InitialSpeed + Elapsed * Acceleration) * speedMultiplier);
+    public double DifficultyProgress => startAtMaxSpeed ? 1 : Math.Clamp(Elapsed / DifficultyRampSeconds, 0, 1);
     public int Score => (int)Math.Min(int.MaxValue, Math.Floor(score));
     public int BestScore { get; private set; }
     public double CurrentPlayerHeight => IsDucking ? CrouchingPlayerHeight : PlayerHeight;
@@ -77,7 +80,7 @@ public sealed class GameSession
     public event Action? RunFinished;
 
     /// <summary>拡大する前のゲーム画面の幅と、速さの設定を受け取る。キャラクターの位置も、その幅で動ける範囲に収める。</summary>
-    public void Configure(double viewportWidth, double multiplier)
+    public void Configure(double viewportWidth, double multiplier, bool startAtMaxSpeed = false)
     {
         if (!double.IsFinite(viewportWidth) || viewportWidth < 320)
             throw new ArgumentOutOfRangeException(nameof(viewportWidth));
@@ -85,6 +88,7 @@ public sealed class GameSession
             throw new ArgumentOutOfRangeException(nameof(multiplier));
         this.viewportWidth = viewportWidth;
         speedMultiplier = multiplier;
+        this.startAtMaxSpeed = startAtMaxSpeed;
         PlayerX = State is GameState.Idle or GameState.Ready
             ? StartingPlayerX : Math.Clamp(PlayerX, MinimumPlayerX, MaximumPlayerX);
     }

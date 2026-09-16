@@ -213,7 +213,7 @@ internal sealed class AppController : IDisposable
 		if (!TaskbarLocator.TryLocate(out var placement, out error)) return false;
 		overlay.Position(placement, settings);
 		// ゲーム内の計算には拡大前の幅を使う。画面の実際の幅を、Windows の表示倍率とキャラクターの倍率で割る。
-		game.Configure(Math.Max(320, placement.Width / placement.DpiScale / settings.CharacterScale), settings.GameSpeed);
+		game.Configure(Math.Max(320, placement.Width / placement.DpiScale / settings.CharacterScale), settings.GameSpeed, settings.StartAtMaxSpeed);
 		return true;
 	}
 

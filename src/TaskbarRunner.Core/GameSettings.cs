@@ -8,6 +8,7 @@ public sealed record GameSettings
     public double GameSpeed { get; init; } = 1;
     public double CharacterScale { get; init; } = 1;
     public int DisplayOffset { get; init; }
+    public bool StartAtMaxSpeed { get; init; }
 
     /// <summary>設定ファイルに使えない値があっても動くように直す。大きすぎる値や小さすぎる値は範囲内に収め、通常の数として扱えない値は標準に戻す。</summary>
     public GameSettings Sanitize() => this with

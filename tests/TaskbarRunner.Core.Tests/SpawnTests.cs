@@ -194,6 +194,50 @@ public sealed class SpawnTests
         Assert.True(trace.Count == 25, $"Only {trace.Count} obstacles appeared in 60s");
         return string.Join(";", trace);
     }
+    // 「最初から最高速」を有効にした場合。1フレーム目で上限に達し、そのまま変わらないこと、
+    // 間隔も最も詰まった状態で固定されること、そしてその状態でも避けきれることを確かめる。
+    [Theory(DisplayName = "Starting at max speed opens at the cap and stays avoidable")]
+    [MemberData(nameof(SpeedIncreasesToItsConfiguredCapAndResetsOnRetryCases))]
+    public void StartingAtMaxSpeedOpensAtTheCapAndStaysAvoidable(double multiplier)
+    {
+        TestContext.Current.TestOutputHelper!.WriteLine($"speed multiplier {multiplier}");
+        var game = Playing();
+        game.Configure(1280, multiplier, startAtMaxSpeed: true);
+        var cap = game.ScrollSpeedLimit;
+        Assert.True(Math.Abs(game.Speed - cap) <= .001,
+            $"The run must open at the cap {cap:F3}, was {game.Speed:F3}");
+        Assert.True(game.DifficultyProgress == 1, "Obstacle spacing must open at its tightest");
+        for (var i = 0; i < 60 * 120; i++)
+        {
+            Avoid(game, true); game.Update(1.0 / 60);
+            Assert.True(game.State == GameState.Playing, $"The bot collided: {Snapshot(game)}");
+            Assert.True(double.IsFinite(game.Speed) && Math.Abs(game.Speed - cap) <= .001,
+                $"Speed must stay at {cap:F3}, was {game.Speed:F3} at {game.Elapsed:F2}s");
+            Assert.True(game.DifficultyProgress == 1,
+                $"Difficulty must stay at its maximum, was {game.DifficultyProgress:R}");
+        }
+        game.Ready(); game.Start();
+        Assert.True(Math.Abs(game.Speed - cap) <= .001, "Retry must open at the cap again");
+    }
+
+    // 既定は従来どおりの段階的な加速。設定を有効にしたときだけ挙動が変わることを、同じ時点の速さで比べる。
+    [Fact(DisplayName = "The max speed setting is off by default")]
+    public void TheMaxSpeedSettingIsOffByDefault()
+    {
+        var normal = Playing();
+        normal.Configure(1280, 1);
+        var fast = Playing();
+        fast.Configure(1280, 1, startAtMaxSpeed: true);
+        Assert.True(normal.Speed < fast.Speed,
+            $"A default run must open slower than a max-speed run: {normal.Speed:F3} vs {fast.Speed:F3}");
+        Assert.True(normal.DifficultyProgress == 0 && fast.DifficultyProgress == 1,
+            "Only the max-speed run may open at full difficulty");
+        Assert.False(new GameSettings().StartAtMaxSpeed, "The setting must default to off");
+        Assert.False(new GameSettings().Sanitize().StartAtMaxSpeed, "Sanitize must keep the default off");
+        Assert.True(new GameSettings { StartAtMaxSpeed = true }.Sanitize().StartAtMaxSpeed,
+            "Sanitize must preserve an enabled setting");
+    }
+
     public static TheoryData<double> SpeedIncreasesToItsConfiguredCapAndResetsOnRetryCases
     {
         get

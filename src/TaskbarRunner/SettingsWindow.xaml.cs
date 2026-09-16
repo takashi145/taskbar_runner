@@ -32,6 +32,7 @@ public partial class SettingsWindow : Window
         CharacterSize.ItemsSource = new[] { "小 · 75%", "標準 · 100%", "大 · 125%", "特大 · 150%" };
         CharacterSize.SelectedIndex = Nearest(Sizes, settings.CharacterScale);
         Offset.Value = settings.DisplayOffset;
+        StartAtMaxSpeed.IsChecked = settings.StartAtMaxSpeed;
         Statistics.Text = $"BEST {data.BestScore:D5}    /    TOTAL RUNS {data.TotalRuns}";
     }
 
@@ -51,7 +52,8 @@ public partial class SettingsWindow : Window
             FpsLimit = FpsLimits[Fps.SelectedIndex],
             GameSpeed = Speeds[Speed.SelectedIndex],
             CharacterScale = Sizes[CharacterSize.SelectedIndex],
-            DisplayOffset = (int)Offset.Value
+            DisplayOffset = (int)Offset.Value,
+            StartAtMaxSpeed = StartAtMaxSpeed.IsChecked == true
         };
         if (save(settings)) DialogResult = true;
     }
