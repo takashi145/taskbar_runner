@@ -36,7 +36,7 @@ internal sealed class AppController : IDisposable
 	private TimeSpan? lastRendering;
 	private double frameBudget;
 	private int recoveryAttempts;
-	// 遊ぶ直前に使っていたウィンドウ。ESC キーでゲームを閉じたら、このウィンドウを再び操作できるようにする。
+	// 遊ぶ直前に使っていたウィンドウ。ゲーム画面を隠したら、このウィンドウを再び操作できるようにする。
 	private nint previousWindow;
 	private bool disposed;
 	internal AppCommands Commands { get; }
@@ -68,7 +68,7 @@ internal sealed class AppController : IDisposable
 		var errors = new List<string>();
 		if (settingsStore.LastError is { } settingsError) errors.Add(settingsError);
 		if (scoreStore.LastError is { } scoreError) errors.Add(scoreError);
-		tray.Notify(errors.Count > 0 ? string.Join("\n", errors) : "通知領域のロボットを左クリックして遊べます。右クリックは設定・終了メニュー。SPACE でスタート／ジャンプ、ESC で作業に戻ります。", errors.Count > 0);
+		tray.Notify(errors.Count > 0 ? string.Join("\n", errors) : "通知領域のロボットを左クリックして遊べます。右クリックは設定・終了メニュー。SPACE でスタート／ジャンプ、ESC で一時停止、もう一度 ESC で作業に戻ります。", errors.Count > 0);
 	}
 
 	// アイコンからの操作は、画面を扱う処理の列（UI スレッド）に渡す。別の処理の列から直接画面を変えないため。
@@ -113,6 +113,10 @@ internal sealed class AppController : IDisposable
 	{
 		switch (key)
 		{
+			// ESC は1回目でその場で止め、2回目で画面を隠して作業に戻す。
+			case Key.Escape when game.State == GameState.Playing:
+				PauseInPlace();
+				break;
 			case Key.Escape:
 				Suspend(restoreFocus: true);
 				break;
@@ -213,6 +217,14 @@ internal sealed class AppController : IDisposable
 	{
 		CompositionTarget.Rendering -= Tick;
 		clock.Stop();
+	}
+
+	/// <summary>ゲーム画面を出したまま走行を止める。もう一度 ESC を押すと隠れる。</summary>
+	private void PauseInPlace()
+	{
+		StopRendering();
+		game.Pause();
+		overlay.Redraw();
 	}
 
 	/// <summary>走行を残したままゲーム画面を隠す。作業に戻った後、通知領域から続きを開ける。</summary>

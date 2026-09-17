@@ -26,17 +26,23 @@ public sealed class AppControllerTests(DesktopFixture desktop)
         Assert.True(!Overlay.IsVisible, "Startup must leave the overlay hidden");
         Play(controller);
         KeyDown(Key.Escape);
+        Assert.True(!Overlay.IsVisible, "Escape on the Ready screen must hide the overlay in one press");
         Assert.True(!File.Exists(Path.Combine(folder, "save.json")), "Leaving Ready must not record a run");
         Play(controller);
         KeyDown(Key.Space);
         PumpFor(TimeSpan.FromMilliseconds(250));
         KeyDown(Key.Escape);
-        Assert.True(!Overlay.IsVisible, "Escape must hide the overlay");
+        Assert.True(Overlay.IsVisible, "The first Escape must pause in place and leave the overlay on screen");
         Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
             "Escape must pause the run instead of recording it");
+        KeyDown(Key.Escape);
+        Assert.True(!Overlay.IsVisible, "The second Escape must hide the overlay");
+        Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
+            "Hiding an already paused run must still not record it");
         Play(controller);
         KeyDown(Key.Space);
         PumpFor(TimeSpan.FromMilliseconds(250));
+        KeyDown(Key.Escape);
         KeyDown(Key.Escape);
         Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
             "Resuming and pausing again must still not record the run");
@@ -56,6 +62,28 @@ public sealed class AppControllerTests(DesktopFixture desktop)
             $"Disposal must record the paused run and keep the earlier totals: {second}");
         controller.Dispose();
         Assert.True(LoadSave(folder) == second, "Repeated disposal must not count an already finished run again");
+    }));
+
+    [Fact(Skip = "Set TASKBARRUNNER_DESKTOP_TESTS=1 to run desktop tests",
+        SkipUnless = nameof(DesktopFixture.IsEnabled), SkipType = typeof(DesktopFixture))]
+    public Task SpaceResumesAPausedRunWithoutReopeningTheOverlay() => desktop.RunAsync(() => WithController((controller, folder) =>
+    {
+        Play(controller);
+        KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(250));
+        KeyDown(Key.Escape);
+        Assert.True(Overlay.IsVisible, "Pausing in place must keep the paused screen on the taskbar");
+        Assert.True(!File.Exists(Path.Combine(folder, "save.json")), "Pausing must not record the run");
+        KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(250));
+        KeyDown(Key.Escape);
+        Assert.True(Overlay.IsVisible, "Space must put the paused run back into play so Escape pauses instead of hiding");
+        Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
+            "Resuming must continue the same run instead of restarting and recording it");
+        controller.Dispose();
+        var saved = LoadSave(folder);
+        Assert.True(saved.TotalRuns == 1 && saved.TotalDistance > 0,
+            $"The resumed run must be recorded exactly once: {saved}");
     }));
 
     [Fact(Skip = "Set TASKBARRUNNER_DESKTOP_TESTS=1 to run desktop tests",

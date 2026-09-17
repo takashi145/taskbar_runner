@@ -77,7 +77,7 @@ internal sealed class GameSurface(GameSession game) : FrameworkElement
         }
         else
         {
-            Text(dc, "← → 移動    SPACE / ↑ 2段ジャンプ    ↓ しゃがむ    ESC 戻る",
+            Text(dc, "← → 移動    SPACE / ↑ 2段ジャンプ    ↓ しゃがむ    ESC 一時停止",
                 ActualWidth / 2, 71, 11, White, centered: true);
         }
         dc.Pop();
