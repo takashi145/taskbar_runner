@@ -21,7 +21,7 @@ public sealed class AppControllerTests(DesktopFixture desktop)
 {
     [Fact(Skip = "Set TASKBARRUNNER_DESKTOP_TESTS=1 to run desktop tests",
         SkipUnless = nameof(DesktopFixture.IsEnabled), SkipType = typeof(DesktopFixture))]
-    public Task PlaySpaceAndEscapePersistOneRun() => desktop.RunAsync(() => WithController((controller, folder) =>
+    public Task EscapePausesTheRunAndGivingUpRecordsIt() => desktop.RunAsync(() => WithController((controller, folder) =>
     {
         Assert.True(!Overlay.IsVisible, "Startup must leave the overlay hidden");
         Play(controller);
@@ -32,28 +32,39 @@ public sealed class AppControllerTests(DesktopFixture desktop)
         PumpFor(TimeSpan.FromMilliseconds(250));
         KeyDown(Key.Escape);
         Assert.True(!Overlay.IsVisible, "Escape must hide the overlay");
-        var first = LoadSave(folder);
-        Assert.True(first.TotalRuns == 1 && first.TotalDistance > 0 && first.BestScore > 0,
-            $"Space must start the timer and Escape must save its progress: {first}");
-        PumpFor(TimeSpan.FromMilliseconds(100));
-        Assert.True(LoadSave(folder) == first, "Idle must not continue updating or saving");
+        Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
+            "Escape must pause the run instead of recording it");
         Play(controller);
         KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(250));
         KeyDown(Key.Escape);
+        Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
+            "Resuming and pausing again must still not record the run");
+        Play(controller);
+        KeyDown(Key.R);
+        var first = LoadSave(folder);
+        Assert.True(first.TotalRuns == 1 && first.TotalDistance > 0 && first.BestScore > 0,
+            $"Giving up a paused run must record exactly that one run: {first}");
+        PumpFor(TimeSpan.FromMilliseconds(100));
+        Assert.True(LoadSave(folder) == first, "Ready must not continue updating or saving");
+        KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(100));
+        KeyDown(Key.Escape);
+        controller.Dispose();
         var second = LoadSave(folder);
         Assert.True(second.TotalRuns == 2 && second.BestScore == first.BestScore && second.TotalDistance >= first.TotalDistance,
-            "Retry must add one run and retain the best score and accumulated distance");
-        controller.Dispose();
+            $"Disposal must record the paused run and keep the earlier totals: {second}");
         controller.Dispose();
         Assert.True(LoadSave(folder) == second, "Repeated disposal must not count an already finished run again");
     }));
 
     [Fact(Skip = "Set TASKBARRUNNER_DESKTOP_TESTS=1 to run desktop tests",
         SkipUnless = nameof(DesktopFixture.IsEnabled), SkipType = typeof(DesktopFixture))]
-    public Task FocusLossStopsTheRunAndSavesOnce() => desktop.RunAsync(() => WithController((controller, folder) =>
+    public Task FocusLossPausesTheRunAndDisposalSavesItOnce() => desktop.RunAsync(() => WithController((controller, folder) =>
     {
         Play(controller);
         KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(150));
         var other = new Window { Title = "Taskbar Runner controller focus test", Width = 240, Height = 100 };
         try
         {
@@ -62,8 +73,12 @@ public sealed class AppControllerTests(DesktopFixture desktop)
             Pump();
             Assert.True(other.IsActive, "The other window must actually acquire focus");
             Assert.True(!Overlay.IsVisible, "Focus loss must hide the overlay through AppController");
+            Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
+                "Focus loss must pause the run instead of recording it");
+            controller.Dispose();
             var saved = LoadSave(folder);
-            Assert.True(saved.TotalRuns == 1, "Focus loss must save exactly one run");
+            Assert.True(saved.TotalRuns == 1 && saved.TotalDistance > 0,
+                $"Disposal must record the paused run exactly once: {saved}");
             controller.Dispose();
             Assert.True(LoadSave(folder) == saved, "Disposal after focus loss must not save a second run");
         }
@@ -124,13 +139,21 @@ public sealed class AppControllerTests(DesktopFixture desktop)
     {
         Play(controller);
         KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(150));
         var original = Overlay;
         controller.Commands.RestartOverlay();
         Pump();
         Assert.True(!ReferenceEquals(original, Overlay) && !Overlay.IsVisible,
-            "Restart must replace the window and leave it idle");
-        Assert.True(LoadSave(folder).TotalRuns == 1, "Restart must finish the active run once");
+            "Restart must replace the window and leave it hidden");
+        Assert.True(!File.Exists(Path.Combine(folder, "save.json")),
+            "Restart must keep the run paused instead of recording it");
         Play(controller);
+        KeyDown(Key.Space);
+        PumpFor(TimeSpan.FromMilliseconds(150));
+        KeyDown(Key.Escape);
+        Play(controller);
+        KeyDown(Key.R);
+        Assert.True(LoadSave(folder).TotalRuns == 1, "The replacement overlay must still drive the paused run");
         KeyDown(Key.Space);
         controller.Dispose();
         Assert.True(LoadSave(folder).TotalRuns == 2, "Space on the replacement overlay must still start a run");

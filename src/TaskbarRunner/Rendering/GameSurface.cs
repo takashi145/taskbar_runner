@@ -58,18 +58,22 @@ internal sealed class GameSurface(GameSession game) : FrameworkElement
         Text(dc, "SCORE", x + panelWidth - 80, y + 8, 10, Muted);
         Text(dc, game.Score.ToString("D5", CultureInfo.InvariantCulture), x + panelWidth - 80, y + 23, 15, White, true);
 
-        if (game.State is GameState.Ready or GameState.GameOver)
+        if (game.State is GameState.Ready or GameState.Paused or GameState.GameOver)
         {
-            var ready = game.State == GameState.Ready;
+            var (headline, headlineColor, detail, hint) = game.State switch
+            {
+                GameState.Ready => ("ひと息、ひとっ走り。", Mint, "SPACE でスタート",
+                    "← → 移動 / SPACE でジャンプ・空中でもう一度 / ↓ しゃがむ"),
+                GameState.Paused => ("一時停止中", White, $"SCORE {game.Score:D5}   ·   SPACE で再開",
+                    "R で最初から / ESC で作業に戻る（走行は残ります）"),
+                _ => ("GAME OVER", Orange, $"SCORE {game.Score:D5}   ·   SPACE でもう一度", "ESC で作業に戻る")
+            };
             var boxWidth = Math.Min(440, panelWidth);
             var boxX = (ActualWidth - boxWidth) / 2;
             dc.DrawRoundedRectangle(Panel, null, new Rect(boxX, 72, boxWidth, 84), 12, 12);
-            Text(dc, ready ? "ひと息、ひとっ走り。" : "GAME OVER", ActualWidth / 2, 82, 19,
-                ready ? Mint : Orange, centered: true);
-            Text(dc, ready ? "SPACE でスタート" : $"SCORE {game.Score:D5}   ·   SPACE でもう一度",
-                ActualWidth / 2, 111, 12, White, centered: true);
-            Text(dc, ready ? "← → 移動 / SPACE でジャンプ・空中でもう一度 / ↓ しゃがむ" : "ESC で作業に戻る",
-                ActualWidth / 2, 134, 10, Muted, centered: true);
+            Text(dc, headline, ActualWidth / 2, 82, 19, headlineColor, centered: true);
+            Text(dc, detail, ActualWidth / 2, 111, 12, White, centered: true);
+            Text(dc, hint, ActualWidth / 2, 134, 10, Muted, centered: true);
         }
         else
         {

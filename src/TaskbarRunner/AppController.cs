@@ -77,7 +77,7 @@ internal sealed class AppController : IDisposable
 	private OverlayWindow CreateOverlay()
 	{
 		var window = new OverlayWindow(game);
-		window.FocusLost += () => Idle(restoreFocus: false);
+		window.FocusLost += () => Suspend(restoreFocus: false);
 		window.EnvironmentChanged += Recover;
 		window.KeyPressed += HandleKey;
 		window.KeyReleased += HandleKeyReleased;
@@ -92,18 +92,19 @@ internal sealed class AppController : IDisposable
 			settingsWindow.Activate();
 			return;
 		}
-		Idle(restoreFocus: false);
+		Suspend(restoreFocus: false);
 		if (!TryPosition(out var error))
 		{
 			tray.Notify(error, true);
 			return;
 		}
 		previousWindow = NativeMethods.GetForegroundWindow();
-		game.Ready();
+		// 一時停止した走行が残っていれば、やり直さずその続きを出す。
+		if (game.State != GameState.Paused) game.Ready();
 		overlay.Redraw();
 		if (!overlay.BeginInteraction())
 		{
-			Idle(restoreFocus: false);
+			Suspend(restoreFocus: false);
 			tray.Notify("ゲームへフォーカスを移せませんでした。通知領域のロボットをもう一度左クリックしてください。", true);
 		}
 	}
@@ -113,7 +114,14 @@ internal sealed class AppController : IDisposable
 		switch (key)
 		{
 			case Key.Escape:
-				Idle(restoreFocus: true);
+				Suspend(restoreFocus: true);
+				break;
+			case Key.Space when game.State == GameState.Paused:
+				ResumeRun();
+				break;
+			case Key.R when game.State == GameState.Paused:
+				game.Ready();
+				overlay.Redraw();
 				break;
 			case Key.Space when game.State is GameState.Ready or GameState.GameOver:
 				StartRun();
@@ -152,8 +160,19 @@ internal sealed class AppController : IDisposable
 
 	private void StartRun()
 	{
-		StopRendering();
 		game.Start();
+		BeginFrames();
+	}
+
+	private void ResumeRun()
+	{
+		game.Resume();
+		BeginFrames();
+	}
+
+	private void BeginFrames()
+	{
+		StopRendering();
 		lastFrame = 0;
 		lastRendering = null;
 		frameBudget = 0;
@@ -168,7 +187,7 @@ internal sealed class AppController : IDisposable
 		// 他のアプリへの切り替えを見逃してもゲームが進み続けないよう、ここでも操作中のウィンドウを確認する。
 		if (NativeMethods.GetForegroundWindow() != overlay.Handle)
 		{
-			Idle(restoreFocus: false);
+			Suspend(restoreFocus: false);
 			return;
 		}
 		var renderingTime = ((RenderingEventArgs)e).RenderingTime;
@@ -196,13 +215,20 @@ internal sealed class AppController : IDisposable
 		clock.Stop();
 	}
 
-	/// <summary>プレイを止めてゲーム画面を隠す。restoreFocus が true なら、遊ぶ前のウィンドウに操作を戻す。</summary>
-	private void Idle(bool restoreFocus)
+	/// <summary>走行を残したままゲーム画面を隠す。作業に戻った後、通知領域から続きを開ける。</summary>
+	private void Suspend(bool restoreFocus) => Hide(restoreFocus, pause: true);
+
+	/// <summary>プレイを終えてゲーム画面を隠す。記録はここで確定する。</summary>
+	private void Idle(bool restoreFocus) => Hide(restoreFocus, pause: false);
+
+	/// <summary>restoreFocus が true なら、遊ぶ前のウィンドウに操作を戻す。</summary>
+	private void Hide(bool restoreFocus, bool pause)
 	{
 		// ゲームを操作中だったか、隠す前に覚えておく。EndInteraction で隠した後では分からない。
 		var hadFocus = NativeMethods.GetForegroundWindow() == overlay.Handle;
 		StopRendering();
-		game.Stop();
+		if (pause) game.Pause();
+		else game.Stop();
 		overlay.EndInteraction();
 		if (restoreFocus && hadFocus && previousWindow != overlay.Handle && NativeMethods.IsWindow(previousWindow))
 			NativeMethods.SetForegroundWindow(previousWindow);
@@ -221,7 +247,7 @@ internal sealed class AppController : IDisposable
 	private void Recover()
 	{
 		if (disposed) return;
-		Idle(restoreFocus: false);
+		Suspend(restoreFocus: false);
 		recoveryAttempts = 0;
 		recoveryTimer.Stop();
 		recoveryTimer.Start(); // 変更があったときだけ調べ直す。成功するか、決めた回数に達したら止める。
@@ -237,7 +263,7 @@ internal sealed class AppController : IDisposable
 	// メニューの Restart Overlay を押したときの処理。表示の乱れを直すため、ゲームのウィンドウを作り直す。
 	private void RestartOverlay()
 	{
-		Idle(restoreFocus: true);
+		Suspend(restoreFocus: true);
 		recoveryTimer.Stop();
 		overlay.Close();
 		overlay = CreateOverlay();
@@ -246,7 +272,7 @@ internal sealed class AppController : IDisposable
 
 	private void OpenSettings()
 	{
-		Idle(restoreFocus: false);
+		Suspend(restoreFocus: false);
 		if (settingsWindow is not null)
 		{
 			settingsWindow.Activate();

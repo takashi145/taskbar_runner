@@ -129,10 +129,28 @@ public sealed class GameSession
     public void MoveLeft(bool pressed) => leftHeld = State == GameState.Playing && pressed;
     public void MoveRight(bool pressed) => rightHeld = State == GameState.Playing && pressed;
 
+    /// <summary>
+    /// プレイ中なら、走行を残したまま止める。記録はまだ確定させない。
+    /// </summary>
+    public void Pause()
+    {
+        if (State != GameState.Playing) return;
+        State = GameState.Paused;
+        ClearInput();
+    }
+
+    /// <summary>一時停止していたら、得点も障害物もそのままで続きから再開する。</summary>
+    public void Resume()
+    {
+        if (State != GameState.Paused) return;
+        State = GameState.Playing;
+    }
+
     /// <summary>プレイを止め、キーを押していない状態に戻す。すでに終了していれば、終了の処理は繰り返さない。</summary>
     public void Stop()
     {
-        var finish = State == GameState.Playing;
+        // 一時停止したまま終わる場合もここで記録を確定する。
+        var finish = State is GameState.Playing or GameState.Paused;
         State = GameState.Idle;
         ClearInput();
         verticalVelocity = 0;

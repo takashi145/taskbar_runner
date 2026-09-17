@@ -55,7 +55,7 @@ internal sealed class OverlayWindow : Window
             // Windows キーを押したら、スタートメニューを操作できるようゲームを中断する。
             if (key is Key.LWin or Key.RWin) { FocusLost?.Invoke(); return; }
             // ゲームで使わないキーは、Windows などがそのまま処理できるようにする。
-            if (key is not (Key.Space or Key.Up or Key.Down or Key.Left or Key.Right or Key.Escape)) return;
+            if (key is not (Key.Space or Key.Up or Key.Down or Key.Left or Key.Right or Key.Escape or Key.R)) return;
             e.Handled = true;
             // 押しっぱなしで何度もジャンプしないよう、最初に押したときだけ処理する。
             if (!e.IsRepeat) KeyPressed?.Invoke(key);
@@ -63,7 +63,7 @@ internal sealed class OverlayWindow : Window
         PreviewKeyUp += (_, e) =>
         {
             if (!interactive || !IsActive) return;
-            if (e.Key is Key.Space or Key.Up or Key.Down or Key.Left or Key.Right or Key.Escape)
+            if (e.Key is Key.Space or Key.Up or Key.Down or Key.Left or Key.Right or Key.Escape or Key.R)
             {
                 e.Handled = true;
                 KeyReleased?.Invoke(e.Key);

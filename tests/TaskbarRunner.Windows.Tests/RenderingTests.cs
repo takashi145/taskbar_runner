@@ -48,12 +48,16 @@ public sealed class RenderingTests(DesktopFixture desktop)
             game.MoveRight(false);
             Assert.True(game.State == GameState.Playing, "Playing snapshot is an active run");
             var playing = RenderVisible(new GameSurface(game), 1280, 280, Path.Combine(output, "playing.png"));
+            // 一時停止は画面を隠したまま進む状態なので、開き直したときに止まっていると分かる必要がある。
+            game.Pause();
+            var paused = RenderVisible(new GameSurface(game), 1280, 280, Path.Combine(output, "paused.png"));
+            game.Resume();
             for (var i = 0; i < 600; i++) game.Update(1.0 / 60);
             Assert.True(game.State == GameState.GameOver, "Game over snapshot follows collision");
             var gameOver = RenderVisible(new GameSurface(game), 1280, 280, Path.Combine(output, "game-over.png"));
-            Assert.True(new[] { ready, playing, gameOver }.Select(stats => stats.Fingerprint).Distinct().Count() == 3,
-                $"Ready / playing / game over each draw something different (ready {ready.Fingerprint}, " +
-                $"playing {playing.Fingerprint}, game over {gameOver.Fingerprint})");
+            Assert.True(new[] { ready, playing, paused, gameOver }.Select(stats => stats.Fingerprint).Distinct().Count() == 4,
+                $"Ready / playing / paused / game over each draw something different (ready {ready.Fingerprint}, " +
+                $"playing {playing.Fingerprint}, paused {paused.Fingerprint}, game over {gameOver.Fingerprint})");
             var duckingGame = new GameSession(random: new Random(42));
             duckingGame.Ready(); duckingGame.Start();
             var capturedOverheadBar = false;

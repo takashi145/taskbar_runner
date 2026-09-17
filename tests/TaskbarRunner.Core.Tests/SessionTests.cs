@@ -159,5 +159,94 @@ public sealed class SessionTests
         Assert.Throws<ArgumentOutOfRangeException>(() => game.Configure(1280, 3));
     }
 
+    // 作業中に遊ぶアプリなので、通知をクリックしただけで走行が消えては使い物にならない。
+    // 一時停止では得点も障害物も残り、記録もまだ確定しない。再開すると続きから走る。
+    [Fact(DisplayName = "Pause keeps the run and resume continues it")]
+    public void PauseKeepsTheRunAndResumeContinuesIt()
+    {
+        var finished = 0;
+        var game = Playing();
+        game.RunFinished += () => finished++;
+        Advance(game, 1, 60);
+        var score = game.Score;
+        var obstacles = game.Obstacles.Count;
+        var elapsed = game.Elapsed;
 
+        game.Pause();
+        Assert.True(game.State == GameState.Paused && finished == 0,
+            $"Pause must not finish the run: state={game.State}, finished={finished}");
+        Assert.True(game.Score == score && game.Obstacles.Count == obstacles,
+            $"Pause must keep the score and the obstacles: {Snapshot(game)}");
+
+        // 隠している間も画面を描く処理から Update が届きうる。止まっている間は進めてはいけない。
+        Advance(game, 2, 60);
+        Assert.True(game.Elapsed == elapsed && game.Score == score,
+            $"A paused run must ignore Update: {Snapshot(game)}");
+        // 押しっぱなし扱いのまま再開すると、勝手にしゃがんだり横に流れたりする。
+        Assert.True(!game.Jump() && !game.IsDucking, "A paused run must ignore game input");
+
+        game.Resume();
+        Advance(game, .5, 60);
+        Assert.True(game.State == GameState.Playing && game.Score > score && finished == 0,
+            $"Resume must continue the same run: {Snapshot(game)}");
+    }
+
+    // 一時停止したまま終了する場面は普通に起きる（アプリを閉じる、設定を変えて閉じるなど）。
+    // ここで記録を落とすと、遊んだ結果が黙って消える。確定は1回だけでなければ回数が水増しされる。
+    [Fact(DisplayName = "Stopping a paused run records it exactly once")]
+    public void StoppingAPausedRunRecordsItExactlyOnce()
+    {
+        var finished = 0;
+        var game = Playing();
+        game.RunFinished += () => finished++;
+        Advance(game, 1, 60);
+        var score = game.Score;
+
+        game.Pause();
+        game.Stop();
+        Assert.True(finished == 1 && game.BestScore == score,
+            $"Stopping a paused run must record it once: finished={finished}, best={game.BestScore}, score={score}");
+        game.Stop();
+        Assert.True(finished == 1, $"A finished run must not be recorded again: finished={finished}");
+    }
+
+    // Pause はプレイ中だけの操作。待機中やゲームオーバーから一時停止に入れてしまうと、
+    // アイコンを押したときに「続きから」と判断され、始まっていない走行を再開しようとする。
+    [Fact(DisplayName = "Pause and resume only apply to an active run")]
+    public void PauseAndResumeOnlyApplyToAnActiveRun()
+    {
+        var game = NewGame();
+        game.Pause();
+        Assert.Equal(GameState.Idle, game.State);
+        game.Ready();
+        game.Pause();
+        Assert.Equal(GameState.Ready, game.State);
+        game.Resume();
+        Assert.Equal(GameState.Ready, game.State);
+
+        game.Start();
+        Advance(game, 10, 60);
+        Assert.Equal(GameState.GameOver, game.State);
+        game.Pause();
+        Assert.Equal(GameState.GameOver, game.State);
+    }
+
+    // 一時停止中でも、設定の変更や画面の解像度変更で Configure が呼ばれる。
+    // ここで障害物や得点が消えると、再開した瞬間に何もない場所を走り出す。
+    [Fact(DisplayName = "Configure during a pause keeps the run intact")]
+    public void ConfigureDuringAPauseKeepsTheRunIntact()
+    {
+        var game = Playing();
+        Advance(game, 2, 60);
+        game.Pause();
+        var score = game.Score;
+        var obstacles = game.Obstacles.Count;
+
+        game.Configure(900, 1.25);
+        Assert.True(game.Score == score && game.Obstacles.Count == obstacles,
+            $"Configure must not clear a paused run: {Snapshot(game)}");
+        // 狭い画面に変わった場合でも、キャラクターは動ける範囲に収まっている必要がある。
+        Assert.True(game.PlayerX >= game.MinimumPlayerX && game.PlayerX <= game.MaximumPlayerX,
+            $"Configure must keep the player inside the new viewport: {Snapshot(game)}");
+    }
 }
